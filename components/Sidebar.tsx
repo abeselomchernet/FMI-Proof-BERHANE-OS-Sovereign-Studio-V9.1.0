@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Database, Activity, ShieldCheck, Box, BrainCircuit, AlertOctagon, Layers, Award } from 'lucide-react';
+import { LayoutDashboard, Database, Activity, ShieldCheck, Box, BrainCircuit, AlertOctagon, Layers, Award, Sparkles } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -10,6 +10,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Studio Overview', icon: LayoutDashboard },
+    { id: 'copilot', label: 'Gemini Copilot (AI)', icon: Sparkles },
     { id: 'blueprint', label: 'System Blueprint', icon: Layers },
     { id: 'ingestion', label: 'Ingestion & Knowledge (I)', icon: Database },
     { id: 'causal_engine', label: 'Causal Engine (II)', icon: BrainCircuit },
@@ -26,6 +27,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           BERHANE <span className="text-berhane-accent">OS</span>
         </h1>
         <p className="text-xs text-emerald-400 mt-1 font-mono">Sovereign Studio V9.1.0-beta</p>
+        <div className="mt-2.5 px-2.5 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/25 flex items-start gap-1.5">
+          <span className="text-[10px] text-amber-300 font-mono leading-tight">
+            ⚠️ <strong>DEMO APP</strong>: Synthetic mock data only. Not real financial data.
+          </span>
+        </div>
       </div>
 
       <nav className="flex-1 p-4 space-y-2">

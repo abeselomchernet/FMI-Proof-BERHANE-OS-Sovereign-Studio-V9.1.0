@@ -51,12 +51,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ ledgerData }) => {
         <div>
           <div className="flex items-center gap-3">
              <h2 className="text-2xl font-bold text-white">Sovereign Studio Overview</h2>
+             <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 text-amber-300 text-xs font-bold rounded-full border border-amber-500/25 shadow-sm">
+                 <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                 DEMO SIMULATION (MOCK DATA)
+             </span>
              <span className="flex items-center gap-1.5 px-3 py-1 bg-berhane-gold/10 text-berhane-gold text-xs font-bold rounded-full border border-berhane-gold/20 shadow-sm">
                  <CheckCircle2 className="w-3.5 h-3.5" />
                  SMT PROVEN / FMI-9
              </span>
           </div>
-          <p className="text-slate-400 text-sm mt-1">Real-time metrics from the Certified Data Warehouse</p>
+          <p className="text-slate-400 text-sm mt-1">Simulated metrics from the Certified Data Warehouse • Not real market data</p>
         </div>
         
         {/* Moat 5 Market Ticker */}
