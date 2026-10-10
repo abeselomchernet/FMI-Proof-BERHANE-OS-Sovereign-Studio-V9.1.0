@@ -1,82 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
-  Bot, User, Send, Sparkles, RefreshCw, Trash2, Copy, Check, 
-  Settings, Settings2, ShieldAlert, Cpu, Zap, ArrowRight, BookOpen, AlertCircle,
-  Key, Eye, EyeOff, ExternalLink, ShieldCheck, X
+  Bot, RefreshCw, Trash2, Settings, Settings2, Key, Send 
 } from 'lucide-react';
 import { AssetLedgerItem } from '../types';
-
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'model';
-  content: string;
-  timestamp: string;
-  modelUsed?: string;
-  isError?: boolean;
-}
-
-interface PersonaConfig {
-  id: string;
-  name: string;
-  badge: string;
-  model: 'gemini-3.5-flash' | 'gemini-3.1-pro-preview' | 'gemini-3.1-flash-lite';
-  description: string;
-  speed: 'General' | 'Deep Reasoning' | 'Ultra Fast';
-  icon: React.ComponentType<{ className?: string }>;
-  systemInstruction: string;
-  starterPrompts: string[];
-}
-
-const PERSONAS: PersonaConfig[] = [
-  {
-    id: 'risk-officer',
-    name: 'Sovereign Risk Officer',
-    badge: 'General Tasks',
-    model: 'gemini-3.5-flash',
-    speed: 'General',
-    icon: Bot,
-    description: 'Expert in BERHANE OS asset securitization, CR-Scores, and sovereign balance sheet anti-fragility.',
-    systemInstruction: 
-      'You are the Sovereign Financial Risk Officer of the BERHANE OS Sovereign Studio. You provide expert analysis on credit risk scoring (CR-Scores), asset eligibility for securitization, provisioning cost reductions, and macroeconomic resilience for sovereign markets. Be professional, mathematically grounded, and concise.',
-    starterPrompts: [
-      'Explain how the AI Alpha Gate elevates loans to meet the 9.0 CR-Score threshold.',
-      'How does SFDR Article 9 certification impact foreign exchange reserve generation?',
-      'Assess the risk profile of Grade A vs Grade B securitized tranches.',
-    ],
-  },
-  {
-    id: 'causal-quant',
-    name: 'Causal & Quants Strategist',
-    badge: 'Complex Tasks',
-    model: 'gemini-3.1-pro-preview',
-    speed: 'Deep Reasoning',
-    icon: Cpu,
-    description: 'High-reasoning specialist for Monte Carlo causal simulations, policy shocks, and E-PSM clearing mechanisms.',
-    systemInstruction: 
-      'You are the Chief Quantitative Strategist and Causal Systems Architect for the BERHANE OS. You excel at complex counterfactual reasoning, Bayesian causal diagrams, Monte Carlo distribution forecasting, and algorithmic auction clearing (Uniform Clearing Price / E-PSM). Provide rigorous, in-depth breakdowns with theoretical and structural nuance.',
-    starterPrompts: [
-      'Simulate the counterfactual impact if NBE raises reserve ratios from 15% to 20%.',
-      'Explain the deterministic clearing price and settlement hash algorithm in E-PSM.',
-      'How does the BTLF protocol prevent cascading bank runs during an ETB currency devaluation shock?',
-    ],
-  },
-  {
-    id: 'fast-auditor',
-    name: 'Regulatory Fast-Checker',
-    badge: 'Fast Tasks',
-    model: 'gemini-3.1-flash-lite',
-    speed: 'Ultra Fast',
-    icon: Zap,
-    description: 'Lightning-fast verification of NBE Directives, statutory decision briefs, and compliance covenants.',
-    systemInstruction: 
-      'You are the High-Throughput Regulatory & Smart Contract Auditor for BERHANE OS. Provide rapid, accurate, pinpoint answers regarding NBE Directives (such as Directive 5.4), legal evidence requirements, smart contract circuit breakers, and compliance requirements. Be direct and concise.',
-    starterPrompts: [
-      'What are the minimum liquidity coverage ratio (LCR) limits under NBE Directive 5.4?',
-      'Check statutory requirements for automated liquidity injections.',
-      'List the exact conditions that trigger a BTLF circuit breaker market halt.',
-    ],
-  },
-];
+import { 
+  CopilotPersonaSelector, COPILOT_PERSONAS, PersonaConfig 
+} from './copilot/CopilotPersonaSelector';
+import { CopilotMessageList, ChatMessage } from './copilot/CopilotMessageList';
+import { CopilotApiKeyModal } from './copilot/CopilotApiKeyModal';
 
 interface GeminiChatbotProps {
   ledgerData?: AssetLedgerItem[];
@@ -105,7 +36,8 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ ledgerData = [] })
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testMessage, setTestMessage] = useState<string>('');
 
-  const activePersona = PERSONAS.find(p => p.id === selectedPersonaId) || PERSONAS[0];
+  const activePersona: PersonaConfig = 
+    COPILOT_PERSONAS.find(p => p.id === selectedPersonaId) || COPILOT_PERSONAS[0];
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -120,19 +52,8 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ ledgerData = [] })
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]);
-
-  // Handle saving API key to localStorage
   const handleSaveApiKey = () => {
     const cleanedKey = tempApiKey.trim();
     setUserApiKey(cleanedKey);
@@ -149,7 +70,6 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ ledgerData = [] })
     setTimeout(() => setSaveSuccess(false), 2000);
   };
 
-  // Handle removing API key from localStorage
   const handleClearApiKey = () => {
     setTempApiKey('');
     setUserApiKey('');
@@ -162,7 +82,6 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ ledgerData = [] })
     setTestMessage('');
   };
 
-  // Test the entered key
   const handleTestApiKey = async () => {
     const keyToTest = tempApiKey.trim() || userApiKey.trim();
     if (!keyToTest) {
@@ -205,10 +124,9 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ ledgerData = [] })
     }
   };
 
-  // Adjust persona change
   const handlePersonaChange = (personaId: string) => {
     setSelectedPersonaId(personaId);
-    const newPersona = PERSONAS.find(p => p.id === personaId) || PERSONAS[0];
+    const newPersona = COPILOT_PERSONAS.find(p => p.id === personaId) || COPILOT_PERSONAS[0];
     setCustomSystemInstruction('');
     setMessages(prev => [
       ...prev,
@@ -222,78 +140,100 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ ledgerData = [] })
     ]);
   };
 
-  const handleSend = async (textToSend?: string) => {
-    const promptText = (textToSend || input).trim();
-    if (!promptText || isLoading) return;
+  const handleCopy = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
-    setInput('');
+  const handleClearChat = () => {
+    if (window.confirm('Clear current copilot chat history?')) {
+      setMessages([
+        {
+          id: `fresh-${Date.now()}`,
+          role: 'model',
+          content: `Session cleared. Ready for your queries as **${activePersona.name}**.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          modelUsed: activePersona.model,
+        },
+      ]);
+    }
+  };
+
+  const handleSend = async (overridePrompt?: string) => {
+    const textToSend = (overridePrompt || input).trim();
+    if (!textToSend || isLoading) return;
 
     const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
+      id: `user-${Date.now()}`,
       role: 'user',
-      content: promptText,
+      content: textToSend,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    setMessages(prev => [...prev, userMessage]);
+    if (!overridePrompt) setInput('');
     setIsLoading(true);
 
     try {
-      // Build system prompt with optional live context
-      let effectiveSystemPrompt = customSystemInstruction.trim() || activePersona.systemInstruction;
+      const systemInstruction = customSystemInstruction.trim() || activePersona.systemInstruction;
+      
+      const payloadMessages = messages
+        .filter(m => !m.isError)
+        .concat(userMessage)
+        .map(m => ({
+          role: m.role,
+          content: m.content,
+        }));
 
-      if (includeContext && ledgerData.length > 0) {
-        const compliantCount = ledgerData.filter(d => d.is_alpha_compliant).length;
-        const avgScore = (ledgerData.reduce((acc, c) => acc + c.berhane_score, 0) / ledgerData.length).toFixed(2);
-        effectiveSystemPrompt += `\n\n[LIVE WAREHOUSE TELEMETRY]: Total assets in ledger: ${ledgerData.length}, Alpha compliant assets: ${compliantCount}, Average CR-Score: ${avgScore}. Target CR-Score is 9.0.`;
-      }
-
-      // Convert conversation history for backend
-      const payloadMessages = newMessages.map(m => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (userApiKey) {
-        headers['x-gemini-api-key'] = userApiKey;
-      }
-
-      const res = await fetch('/api/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userApiKey ? { 'x-gemini-api-key': userApiKey } : {}),
+        },
         body: JSON.stringify({
           messages: payloadMessages,
-          systemInstruction: effectiveSystemPrompt,
+          systemInstruction,
           model: activePersona.model,
           apiKey: userApiKey || undefined,
+          context: includeContext ? {
+            totalAssetsInWarehouse: ledgerData.length,
+            gradeACount: ledgerData.filter(d => d.tranche === 'Grade A').length,
+            gradeBCount: ledgerData.filter(d => d.tranche === 'Grade B').length,
+            distressedCount: ledgerData.filter(d => d.tranche === 'Distressed').length,
+            sampleAssets: ledgerData.slice(0, 3).map(a => ({
+              id: a.loan_id,
+              borrower: a.borrower_name,
+              score: a.berhane_score,
+              tranche: a.tranche,
+              status: a.settlement_status,
+            })),
+          } : undefined,
         }),
       });
 
-      const data = await res.json();
+      const data = await response.json();
 
-      if (!res.ok || data.error) {
-        throw new Error(data.error || 'Server returned an error');
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to receive response from Gemini Copilot server.');
       }
 
       const botMessage: ChatMessage = {
         id: `bot-${Date.now()}`,
         role: 'model',
-        content: data.reply || 'No response returned.',
+        content: data.reply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        modelUsed: data.model || activePersona.model,
+        modelUsed: data.modelUsed || activePersona.model,
       };
 
       setMessages(prev => [...prev, botMessage]);
-    } catch (err: any) {
-      console.error('Chat error:', err);
+    } catch (error: any) {
+      console.error('Gemini Copilot Error:', error);
       const errorMessage: ChatMessage = {
         id: `err-${Date.now()}`,
         role: 'model',
-        content: `⚠️ **Error communicating with Gemini**: ${err.message || 'Please check your connection and API key.'}`,
+        content: `**Copilot Error:** ${error.message || 'An unexpected error occurred while communicating with the model backend.'}\n\n*Tip:* Click **"Input API Key"** to provide your Google AI Studio key directly.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isError: true,
       };
@@ -311,292 +251,106 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ ledgerData = [] })
     }
   };
 
-  const handleCopy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleClearChat = () => {
-    setMessages([
-      {
-        id: `cleared-${Date.now()}`,
-        role: 'model',
-        content: `Chat history cleared. Active Persona: **${activePersona.name}** (\`${activePersona.model}\`). Ready for your query.`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        modelUsed: activePersona.model,
-      },
-    ]);
-  };
-
   return (
-    <div className="h-full flex flex-col space-y-4 animate-in fade-in duration-300 relative">
-      {/* Top Header */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-white tracking-tight">BERHANE Sovereign Copilot</h2>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-900/30 text-emerald-400 border border-emerald-500/30">
-                FREE OPTION READY
-              </span>
-              {userApiKey && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-900/40 text-sky-400 border border-sky-500/40 flex items-center gap-1">
-                  <Key className="w-2.5 h-2.5" /> CUSTOM KEY ACTIVE
-                </span>
-              )}
+    <div className="h-full flex flex-col space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
+      <CopilotApiKeyModal 
+        showApiKeyModal={showApiKeyModal}
+        tempApiKey={tempApiKey}
+        userApiKey={userApiKey}
+        showKeyText={showKeyText}
+        saveSuccess={saveSuccess}
+        testStatus={testStatus}
+        testMessage={testMessage}
+        onClose={() => setShowApiKeyModal(false)}
+        onTempApiKeyChange={setTempApiKey}
+        onToggleShowKeyText={() => setShowKeyText(!showKeyText)}
+        onSaveApiKey={handleSaveApiKey}
+        onTestApiKey={handleTestApiKey}
+        onClearApiKey={handleClearApiKey}
+      />
+
+      {/* Top Header & Persona Control */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 md:p-5 flex flex-col gap-4 shadow-lg shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-900/30">
+              <Bot className="w-5 h-5 text-white" />
             </div>
-            <p className="text-xs text-slate-400">
-              Institutional sovereign advisor with built-in domain knowledge & Gemini support
-            </p>
-          </div>
-        </div>
-
-        {/* Right Action Bar */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Persona quick buttons */}
-          <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-            {PERSONAS.map(p => {
-              const isSelected = p.id === selectedPersonaId;
-              const IconComp = p.icon;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => handlePersonaChange(p.id)}
-                  title={`${p.name} (${p.model})`}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    isSelected
-                      ? 'bg-berhane-accent text-white shadow-sm font-semibold'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-                  }`}
-                >
-                  <IconComp className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{p.name.split(' ')[0]}</span>
-                </button>
-              );
-            })}
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white tracking-tight">Gemini Sovereign Copilot</h2>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-berhane-accent/20 text-sky-300 border border-berhane-accent/30 font-semibold">
+                  Multi-Persona V9.1
+                </span>
+                {userApiKey && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+                    Key Active
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400">
+                Institutional AI for credit risk modeling, causal shock simulations, and regulatory auditing
+              </p>
+            </div>
           </div>
 
-          {/* Persistent Settings Icon Button */}
-          <button
-            onClick={() => {
-              setTempApiKey(userApiKey);
-              setShowApiKeyModal(true);
-            }}
-            className={`relative p-2 rounded-lg border transition-all text-xs font-medium flex items-center gap-1.5 group ${
-              userApiKey
-                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/50'
-                : 'bg-slate-950 text-slate-300 border-slate-700 hover:text-white hover:border-berhane-accent'
-            }`}
-            title="Configure Gemini API Key & Copilot Settings"
-            aria-label="Open settings"
-          >
-            <Settings className="w-4 h-4 text-slate-300 group-hover:text-white transition-transform group-hover:rotate-45" />
-            <span className="text-xs font-semibold hidden md:inline">
-              {userApiKey ? 'Settings (Key Saved)' : 'Settings'}
-            </span>
-            {userApiKey && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            )}
-          </button>
-
-          {/* Model Config toggle */}
-          <button
-            onClick={() => setShowConfig(!showConfig)}
-            className={`p-2 rounded-lg border transition-all text-xs flex items-center gap-1 ${
-              showConfig
-                ? 'bg-slate-800 text-berhane-gold border-berhane-gold/40'
-                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-            }`}
-            title="Persona & Context Prompt Details"
-          >
-            <Settings2 className="w-4 h-4" />
-          </button>
-
-          {/* Clear Chat */}
-          <button
-            onClick={handleClearChat}
-            className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-900/50 transition-all text-xs"
-            title="Clear Chat History"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Persistent API Key Settings Modal */}
-      {showApiKeyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative">
+          <div className="flex items-center space-x-2">
             <button
-              onClick={() => setShowApiKeyModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              onClick={() => {
+                setTempApiKey(userApiKey);
+                setShowApiKeyModal(true);
+              }}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1.5 transition-colors"
+              title="Configure Custom Google Gemini API Key"
             >
-              <X className="w-5 h-5" />
+              <Key className="w-3.5 h-3.5 text-berhane-gold" />
+              <span>{userApiKey ? 'Manage API Key' : 'Input API Key'}</span>
             </button>
 
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                <Key className="w-5 h-5 text-berhane-gold" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">Gemini API Key Settings</h3>
-                <p className="text-xs text-slate-400">
-                  Stored securely in your browser's <code className="text-slate-300">localStorage</code>
-                </p>
-              </div>
-            </div>
+            <button
+              onClick={() => setShowConfig(!showConfig)}
+              className={`text-xs px-3 py-1.5 rounded-lg border flex items-center space-x-1.5 transition-colors ${
+                showConfig
+                  ? 'bg-berhane-accent text-white border-berhane-accent'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+              }`}
+              title="Configure Persona Parameters"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>System Prompt</span>
+            </button>
 
-            <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              Enter your Google Gemini API key to use live cloud models. If left blank, the copilot uses the <strong>built-in Free Sovereign Knowledge Engine</strong>.
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-mono text-slate-400 block mb-1.5">
-                  Your Gemini API Key (starts with <code className="text-berhane-gold">AIzaSy...</code>)
-                </label>
-                <div className="relative">
-                  <input
-                    type={showKeyText ? 'text' : 'password'}
-                    value={tempApiKey}
-                    onChange={e => setTempApiKey(e.target.value)}
-                    placeholder="Paste AIzaSy... here"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg py-2.5 pl-3 pr-10 text-sm text-white font-mono placeholder-slate-600 focus:outline-none focus:border-berhane-accent"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKeyText(!showKeyText)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                  >
-                    {showKeyText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Status or test message */}
-              {testMessage && (
-                <div className={`p-2.5 rounded-lg text-xs font-mono flex items-center gap-2 ${
-                  testStatus === 'success'
-                    ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-800'
-                    : testStatus === 'error'
-                    ? 'bg-rose-950/40 text-rose-300 border border-rose-800'
-                    : 'bg-slate-950 text-slate-300 border border-slate-800'
-                }`}>
-                  {testStatus === 'testing' && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                  {testStatus === 'success' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-                  {testStatus === 'error' && <AlertCircle className="w-3.5 h-3.5 text-rose-400" />}
-                  <span>{testMessage}</span>
-                </div>
-              )}
-
-              {/* Modal Buttons */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleTestApiKey}
-                    disabled={testStatus === 'testing' || !tempApiKey.trim()}
-                    className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs font-semibold text-slate-200 transition-colors"
-                  >
-                    Test Key
-                  </button>
-                  {userApiKey && (
-                    <button
-                      onClick={handleClearApiKey}
-                      className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-rose-900/30 hover:text-rose-300 text-xs font-semibold text-slate-400 transition-colors"
-                    >
-                      Remove Key
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowApiKeyModal(false)}
-                    className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleSaveApiKey();
-                      setTimeout(() => setShowApiKeyModal(false), 500);
-                    }}
-                    className="px-4 py-2 rounded-lg bg-berhane-accent hover:bg-sky-500 text-xs font-bold text-white shadow-lg shadow-sky-900/30 transition-all flex items-center gap-1.5"
-                  >
-                    {saveSuccess ? <Check className="w-3.5 h-3.5" /> : null}
-                    <span>{saveSuccess ? 'Saved!' : 'Save Key'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Free Key Helper Link */}
-              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold text-slate-200">Don't have an API key?</div>
-                  <div className="text-[11px] text-slate-400">Get a 100% free Gemini API key with no credit card required.</div>
-                </div>
-                <a
-                  href="https://aistudio.google.com/app/apikey"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-berhane-gold text-xs font-bold border border-amber-500/30 flex items-center gap-1 transition-colors"
-                >
-                  <span>Get Free Key</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            </div>
+            <button
+              onClick={handleClearChat}
+              className="bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 text-xs p-2 rounded-lg border border-slate-700 hover:border-rose-900/40 transition-colors"
+              title="Clear Chat History"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Collapsible Config & Persona Settings */}
+        {/* Persona Selector Tabs */}
+        <CopilotPersonaSelector 
+          selectedPersonaId={selectedPersonaId}
+          onSelectPersona={handlePersonaChange}
+        />
+      </div>
+
+      {/* Collapsible System Instruction Panel */}
       {showConfig && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 animate-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono flex items-center gap-2">
+        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 text-xs animate-in slide-in-from-top-2 shrink-0">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-bold text-slate-200 flex items-center gap-1.5">
               <Settings2 className="w-4 h-4 text-berhane-accent" />
-              Model & Role Configuration
-            </h3>
-            <span className="text-[11px] text-slate-400 font-mono">
-              Active Model: <span className="text-berhane-gold font-bold">{activePersona.model}</span>
+              <span>Live System Instruction Override</span>
+            </span>
+            <span className="text-[10px] text-slate-500 font-mono">
+              Model: {activePersona.model}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-            {PERSONAS.map(p => (
-              <div
-                key={p.id}
-                onClick={() => handlePersonaChange(p.id)}
-                className={`cursor-pointer p-3 rounded-lg border transition-all ${
-                  p.id === selectedPersonaId
-                    ? 'bg-slate-950 border-berhane-accent shadow-sm ring-1 ring-berhane-accent/50'
-                    : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-white">{p.name}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
-                    p.speed === 'Deep Reasoning'
-                      ? 'bg-indigo-900/40 text-indigo-400 border border-indigo-700/40'
-                      : p.speed === 'Ultra Fast'
-                      ? 'bg-amber-900/40 text-amber-400 border border-amber-700/40'
-                      : 'bg-sky-900/40 text-sky-400 border border-sky-700/40'
-                  }`}>
-                    {p.speed}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400 mb-2">{p.description}</div>
-                <div className="text-[10px] text-berhane-gold font-mono">Model: {p.model}</div>
-              </div>
-            ))}
-          </div>
-
-          <div>
+          <div className="space-y-2">
             <label className="text-[11px] font-mono text-slate-400 block mb-1">
               Custom System Instruction (Overrides default role behavior):
             </label>
@@ -633,133 +387,17 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ ledgerData = [] })
 
       {/* Main Chat Thread */}
       <div className="flex-1 bg-slate-950 border border-slate-800 rounded-xl flex flex-col min-h-0 overflow-hidden shadow-inner">
-        {/* Messages Scroll Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-          {messages.map(message => {
-            const isUser = message.role === 'user';
-            return (
-              <div
-                key={message.id}
-                className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
-              >
-                {!isUser && (
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-md">
-                    <Bot className="w-4 h-4 text-white" />
-                  </div>
-                )}
-
-                <div
-                  className={`group relative max-w-[85%] md:max-w-[75%] rounded-2xl p-4 text-sm leading-relaxed ${
-                    isUser
-                      ? 'bg-berhane-accent text-white rounded-br-none shadow-md shadow-sky-900/20'
-                      : message.isError
-                      ? 'bg-rose-950/40 border border-rose-900/50 text-rose-200 rounded-bl-none'
-                      : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none shadow-md'
-                  }`}
-                >
-                  {/* Message meta */}
-                  <div className="flex items-center justify-between gap-4 mb-1.5 text-[10px] opacity-70">
-                    <span className="font-semibold font-mono">
-                      {isUser ? 'You' : activePersona.name}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {message.modelUsed && (
-                        <span className="font-mono bg-slate-950/40 px-1 rounded text-[9px]">
-                          {message.modelUsed}
-                        </span>
-                      )}
-                      <span>{message.timestamp}</span>
-                    </div>
-                  </div>
-
-                  {/* Message Content with basic formatting */}
-                  <div className="whitespace-pre-wrap font-sans break-words space-y-2">
-                    {message.content.split('\n\n').map((paragraph, idx) => {
-                      // Check for bullet list
-                      if (paragraph.startsWith('- ') || paragraph.startsWith('* ')) {
-                        const items = paragraph.split('\n').filter(Boolean);
-                        return (
-                          <ul key={idx} className="list-disc pl-5 space-y-1">
-                            {items.map((it, i) => (
-                              <li key={i}>{it.replace(/^[-*]\s+/, '')}</li>
-                            ))}
-                          </ul>
-                        );
-                      }
-                      return <p key={idx}>{paragraph}</p>;
-                    })}
-                  </div>
-
-                  {/* Action row on hover */}
-                  {!isUser && (
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 bottom-2 flex gap-1 bg-slate-900/90 px-1.5 py-1 rounded border border-slate-700 text-slate-400">
-                      <button
-                        onClick={() => handleCopy(message.id, message.content)}
-                        className="hover:text-white transition-colors"
-                        title="Copy text"
-                      >
-                        {copiedId === message.id ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {isUser && (
-                  <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
-                    <User className="w-4 h-4 text-slate-300" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Loading indicator */}
-          {isLoading && (
-            <div className="flex gap-3 justify-start items-center">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shrink-0 animate-pulse">
-                <Bot className="w-4 h-4 text-white" />
-              </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl rounded-bl-none p-4 flex items-center space-x-2">
-                <div className="w-2 h-2 rounded-full bg-berhane-accent animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 rounded-full bg-berhane-accent animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 rounded-full bg-berhane-accent animate-bounce" style={{ animationDelay: '300ms' }} />
-                <span className="text-xs text-slate-400 font-mono ml-2">
-                  {activePersona.name} ({activePersona.model}) is reasoning...
-                </span>
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Starter Prompts Carousel */}
-        {messages.length <= 2 && (
-          <div className="px-4 py-2 border-t border-slate-800/80 bg-slate-900/40">
-            <div className="text-[10px] uppercase font-mono text-slate-500 mb-1.5 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-berhane-gold" />
-              Suggested Queries ({activePersona.name}):
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-              {activePersona.starterPrompts.map((prompt, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleSend(prompt)}
-                  className="whitespace-nowrap bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-slate-800 text-xs transition-colors shrink-0 text-left"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        <CopilotMessageList 
+          messages={messages}
+          isLoading={isLoading}
+          activePersona={activePersona}
+          copiedId={copiedId}
+          onCopy={handleCopy}
+          onSelectPrompt={(prompt) => handleSend(prompt)}
+        />
 
         {/* Bottom Input Box */}
-        <div className="p-3 md:p-4 bg-slate-900 border-t border-slate-800">
+        <div className="p-3 md:p-4 bg-slate-900 border-t border-slate-800 shrink-0">
           <div className="relative flex items-end gap-2 bg-slate-950 border border-slate-800 focus-within:border-berhane-accent rounded-xl p-2 transition-colors">
             <textarea
               ref={textareaRef}
@@ -781,7 +419,7 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ ledgerData = [] })
             </button>
           </div>
           <div className="flex justify-between items-center mt-2 px-1 text-[10px] text-slate-500 font-mono">
-            <span>Model: <span className="text-slate-300">{activePersona.model}</span> • Role: <span className="text-slate-300">{activePersona.name}</span></span>
+            <span>Model: <span className="text-slate-300">{activePersona.model}</span> &bull; Role: <span className="text-slate-300">{activePersona.name}</span></span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -794,7 +432,7 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ ledgerData = [] })
                 <Key className="w-3 h-3 text-berhane-gold" />
                 <span>{userApiKey ? 'Custom Key: Saved' : 'Input API Key'}</span>
               </button>
-              <span>•</span>
+              <span>&bull;</span>
               <span>Shift + Enter for multiline</span>
             </div>
           </div>
@@ -803,3 +441,5 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ ledgerData = [] })
     </div>
   );
 };
+
+export default GeminiChatbot;

@@ -7,16 +7,133 @@ import {
 } from '../types';
 import { TARGET_BERHANE_SCORE } from '../constants';
 
-// --- State Stores (In-Memory for Demo) ---
+// --- State Stores & Concurrency Engine ---
 
-let CURRENT_AUCTION: AuctionWindow = {
-    auctionId: 101,
-    startTimestamp: Date.now(),
-    endTimestamp: Date.now() + 172800000, // +48h
-    supply: 50000,
-    state: AuctionState.PREPARATION,
-    bids: []
-};
+const AUCTION_STORAGE_KEY = 'berhane_auction_window_v1';
+const AUCTION_CHANNEL_NAME = 'berhane_auction_broadcast';
+const TAB_ID = typeof window !== 'undefined' ? `TAB-${Math.random().toString(36).substring(2, 8)}` : 'SERVER';
+
+let auctionBroadcastChannel: BroadcastChannel | null = null;
+const auctionListeners = new Set<(auction: AuctionWindow) => void>();
+
+function notifyAuctionListeners(auction: AuctionWindow) {
+    auctionListeners.forEach(listener => {
+        try {
+            listener(auction);
+        } catch (e) {
+            console.error('[AuctionConcurrency] Listener error:', e);
+        }
+    });
+}
+
+if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+    try {
+        auctionBroadcastChannel = new BroadcastChannel(AUCTION_CHANNEL_NAME);
+        auctionBroadcastChannel.onmessage = (event) => {
+            if (event.data && event.data.type === 'AUCTION_STATE_UPDATED') {
+                CURRENT_AUCTION = event.data.payload;
+                notifyAuctionListeners(CURRENT_AUCTION);
+            }
+        };
+    } catch (err) {
+        console.warn('[AuctionEngine] BroadcastChannel error:', err);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (event) => {
+        if (event.key === AUCTION_STORAGE_KEY && event.newValue) {
+            try {
+                const parsed: AuctionWindow = JSON.parse(event.newValue);
+                CURRENT_AUCTION = parsed;
+                notifyAuctionListeners(CURRENT_AUCTION);
+            } catch (e) {
+                console.error('[AuctionEngine] Storage parse error:', e);
+            }
+        }
+    });
+}
+
+export function subscribeAuctionState(callback: (auction: AuctionWindow) => void): () => void {
+    auctionListeners.add(callback);
+    return () => auctionListeners.delete(callback);
+}
+
+function getStoredOrInitAuction(): AuctionWindow {
+    if (typeof window !== 'undefined') {
+        try {
+            const raw = localStorage.getItem(AUCTION_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed.auctionId === 'number') {
+                    return parsed;
+                }
+            }
+        } catch (e) {
+            console.warn('[AuctionEngine] Load error:', e);
+        }
+    }
+    return {
+        auctionId: 101,
+        startTimestamp: Date.now(),
+        endTimestamp: Date.now() + 172800000, // +48h
+        supply: 50000,
+        state: AuctionState.PREPARATION,
+        bids: [],
+        version: 1,
+        lastModified: Date.now(),
+        lastModifiedByTab: TAB_ID
+    };
+}
+
+let CURRENT_AUCTION: AuctionWindow = getStoredOrInitAuction();
+
+function syncAuctionFromStorage(): AuctionWindow {
+    if (typeof window !== 'undefined') {
+        try {
+            const raw = localStorage.getItem(AUCTION_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && (!CURRENT_AUCTION.version || (parsed.version && parsed.version > CURRENT_AUCTION.version))) {
+                    CURRENT_AUCTION = parsed;
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+    return CURRENT_AUCTION;
+}
+
+function persistAuctionState(auction: AuctionWindow, broadcast = true): AuctionWindow {
+    const updated: AuctionWindow = {
+        ...auction,
+        version: (auction.version || 0) + 1,
+        lastModified: Date.now(),
+        lastModifiedByTab: TAB_ID
+    };
+    CURRENT_AUCTION = updated;
+
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.setItem(AUCTION_STORAGE_KEY, JSON.stringify(updated));
+        } catch (e) {
+            console.error('[AuctionEngine] Persist error:', e);
+        }
+        if (broadcast && auctionBroadcastChannel) {
+            try {
+                auctionBroadcastChannel.postMessage({
+                    type: 'AUCTION_STATE_UPDATED',
+                    payload: updated
+                });
+            } catch (e) {
+                console.warn('[AuctionEngine] Broadcast error:', e);
+            }
+        }
+    }
+    notifyAuctionListeners(updated);
+    return updated;
+}
 
 let LEGAL_BRIEFS_STORE: DecisionBrief[] = [
     {
@@ -64,16 +181,32 @@ function uuidv4(): string {
 
 // --- Mock Data Generators ---
 
+const MOCK_BORROWERS = [
+    'Abyssinia Agro-Export Corp',
+    'Awash Valley Logistics Ltd',
+    'Selam Textile Mills',
+    'Zema Solar Solutions',
+    'Teklehaimanot Trading Plc',
+    'Addis Specialty Coffee Exporters',
+    'Tana Basin AgriTech',
+    'Bale Mountains Eco-Logistics',
+    'Entoto Tech Ventures',
+    'Diredawa Light Manufacturing',
+    'Rift Valley Grain Silos',
+    'Nile Blue Infrastructure Ltd'
+];
+
 export function generateMockRawLoans(count: number): RawLoan[] {
     const loans: RawLoan[] = [];
     for (let i = 0; i < count; i++) {
+        const borrower = MOCK_BORROWERS[i % MOCK_BORROWERS.length] || `Borrower ${i + 1}`;
         loans.push({
             loan_id: `LN-${Math.floor(Math.random() * 10000)}`,
             value_etb: Math.floor(Math.random() * 5000000) + 100000,
             trad_score: Math.floor(Math.random() * 5) + 3, // 3-8
             uploaded_at: new Date().toISOString(),
             source_file_name: 'batch_upload_v1.csv',
-            applicant_name: `Applicant ${Math.floor(Math.random() * 100)}`
+            applicant_name: borrower
         });
     }
     return loans;
@@ -119,6 +252,8 @@ export function runAlphaGateTransformation(raw: RawLoan): AssetLedgerItem {
     return {
         asset_uuid: uuidv4(),
         loan_id: raw.loan_id,
+        borrower_name: raw.applicant_name,
+        applicant_name: raw.applicant_name,
         imm_uplift,
         berhane_score,
         is_alpha_compliant: is_compliant,
@@ -424,81 +559,112 @@ export function getLegalBriefs(): Promise<DecisionBrief[]> {
     return Promise.resolve([...LEGAL_BRIEFS_STORE]);
 }
 
-// --- Auction Engine ---
+// --- Auction Engine with Optimistic Concurrency & Storage Sync ---
 
 export function getCurrentAuctionState(): Promise<AuctionWindow> {
-    return Promise.resolve({...CURRENT_AUCTION});
+    const current = syncAuctionFromStorage();
+    return Promise.resolve({...current});
 }
 
-export function advanceAuctionState(): Promise<AuctionWindow> {
+export function advanceAuctionState(expectedVersion?: number): Promise<AuctionWindow> {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            if (CURRENT_AUCTION.state === AuctionState.PREPARATION) {
-                CURRENT_AUCTION.state = AuctionState.OPEN;
-            } else if (CURRENT_AUCTION.state === AuctionState.OPEN) {
-                CURRENT_AUCTION.state = AuctionState.CLOSED;
-                // Auto-finalize triggers in real system, here we wait for manual or call it separately?
-                // For demo, let's auto-finalize if advancing from CLOSED to FINALIZED manually,
-                // but usually the button "Advance Time" might just close it.
-                // Let's assume this func moves to next logical state.
-                finalizeAuction().catch(() => {}); // Attempt auto-finalize if closing
-            } else if (CURRENT_AUCTION.state === AuctionState.CLOSED) {
-                // If closed, advancing might mean finalizing? 
-                // Usually finalize is separate. Let's say advance does nothing if closed unless finalized.
+            const current = syncAuctionFromStorage();
+            if (expectedVersion !== undefined && current.version !== undefined && current.version !== expectedVersion) {
+                reject(new Error(`Concurrency Conflict: Auction state was updated by another session (expected v${expectedVersion}, found v${current.version}).`));
+                return;
             }
-            resolve({...CURRENT_AUCTION});
-        }, 500);
+
+            let nextState = current.state;
+            if (current.state === AuctionState.PREPARATION) {
+                nextState = AuctionState.OPEN;
+            } else if (current.state === AuctionState.OPEN) {
+                nextState = AuctionState.CLOSED;
+            }
+
+            const updated = persistAuctionState({
+                ...current,
+                state: nextState
+            });
+
+            if (nextState === AuctionState.CLOSED) {
+                // Auto-finalize if advancing to closed
+                finalizeAuction().catch(() => {});
+            }
+
+            resolve({...updated});
+        }, 400);
     });
 }
 
-export function submitBid(investorId: string, volume: number, price: number): Promise<void> {
+export function submitBid(investorId: string, volume: number, price: number, expectedVersion?: number): Promise<void> {
     return new Promise((resolve, reject) => {
-         if (CURRENT_AUCTION.state !== AuctionState.OPEN) {
-             reject(new Error("Auction not OPEN"));
-             return;
-         }
-         CURRENT_AUCTION.bids.push({
-             investorId, volume, price, timestamp: Date.now()
-         });
-         resolve();
+        const current = syncAuctionFromStorage();
+        if (expectedVersion !== undefined && current.version !== undefined && current.version !== expectedVersion) {
+            reject(new Error(`Concurrency Conflict: Auction state was modified concurrently (v${current.version} vs v${expectedVersion}). Please refresh.`));
+            return;
+        }
+
+        if (current.state !== AuctionState.OPEN) {
+            reject(new Error(`Auction is currently in '${current.state}' state, bids are only accepted when OPEN.`));
+            return;
+        }
+
+        const newBid: Bid = {
+            investorId,
+            volume,
+            price,
+            timestamp: Date.now()
+        };
+
+        persistAuctionState({
+            ...current,
+            bids: [...current.bids, newBid]
+        });
+
+        resolve();
     });
 }
 
 export function resetAuction(): Promise<void> {
     return new Promise(resolve => {
-        CURRENT_AUCTION = {
-            auctionId: CURRENT_AUCTION.auctionId + 1,
+        const current = syncAuctionFromStorage();
+        const resetWindow: AuctionWindow = {
+            auctionId: (current.auctionId || 100) + 1,
             startTimestamp: Date.now(),
             endTimestamp: Date.now() + 172800000,
             supply: 50000,
             state: AuctionState.PREPARATION,
             bids: []
         };
+        persistAuctionState(resetWindow);
         resolve();
     });
 }
 
-// AuctionEngine Logic (Deterministic Clearing)
+// AuctionEngine Logic (Deterministic Clearing with Concurrency Safety)
 export function finalizeAuction(): Promise<{ clearingPrice: number, allocations: any[], settlementHash: string }> {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
+            const current = syncAuctionFromStorage();
+
             // Idempotency check: If already finalized, return existing result without error
-            if (CURRENT_AUCTION.state === AuctionState.FINALIZED) {
+            if (current.state === AuctionState.FINALIZED) {
                 resolve({
-                    clearingPrice: CURRENT_AUCTION.clearingPrice || 0,
-                    allocations: CURRENT_AUCTION.allocations || [],
-                    settlementHash: CURRENT_AUCTION.settlementHash || ''
+                    clearingPrice: current.clearingPrice || 0,
+                    allocations: current.allocations || [],
+                    settlementHash: current.settlementHash || ''
                 });
                 return;
             }
 
-            if (CURRENT_AUCTION.state !== AuctionState.CLOSED) {
+            if (current.state !== AuctionState.CLOSED) {
                 reject(new Error("Auction must be CLOSED to finalize."));
                 return;
             }
 
             // 1. Sort Bids (Highest Price First; Time Priority for ties)
-            const sortedBids = [...CURRENT_AUCTION.bids].sort((a, b) => {
+            const sortedBids = [...current.bids].sort((a, b) => {
                 if (b.price !== a.price) {
                     return b.price - a.price; // Descending price
                 }
@@ -508,12 +674,12 @@ export function finalizeAuction(): Promise<{ clearingPrice: number, allocations:
             let cumulativeDemand = 0;
             let clearingPrice = 0;
             let tradeAllocations: any[] = [];
-            let remainingSupply = CURRENT_AUCTION.supply;
+            let remainingSupply = current.supply;
 
             // 2. Determine Clearing Price (UCP)
             for (const bid of sortedBids) {
                 cumulativeDemand += bid.volume;
-                if (cumulativeDemand >= CURRENT_AUCTION.supply && clearingPrice === 0) {
+                if (cumulativeDemand >= current.supply && clearingPrice === 0) {
                     clearingPrice = bid.price;
                     break;
                 }
@@ -541,8 +707,7 @@ export function finalizeAuction(): Promise<{ clearingPrice: number, allocations:
             }
             
             // Deterministic Hash Generation (FMI Requirement)
-            // Hash = Hash(AuctionID + UCP + AllocationCount + TotalVolume)
-            const inputString = `${CURRENT_AUCTION.auctionId}-${clearingPrice}-${tradeAllocations.length}-${tradeAllocations.reduce((acc, curr) => acc + curr.volume, 0)}`;
+            const inputString = `${current.auctionId}-${clearingPrice}-${tradeAllocations.length}-${tradeAllocations.reduce((acc, curr) => acc + curr.volume, 0)}`;
             let hashVal = 0;
             for (let i = 0; i < inputString.length; i++) {
                 const char = inputString.charCodeAt(i);
@@ -553,30 +718,29 @@ export function finalizeAuction(): Promise<{ clearingPrice: number, allocations:
             const deterministicPart = Math.abs(hashVal).toString(16).padStart(8, '0');
             const settlementHash = `0x${deterministicPart}0000000000000000000000000000000000000000000000`;
 
-            // Update State with Persistence
-            CURRENT_AUCTION = {
-                ...CURRENT_AUCTION,
+            // Atomically update state with persistence & broadcast
+            persistAuctionState({
+                ...current,
                 state: AuctionState.FINALIZED,
                 clearingPrice: clearingPrice,
                 allocations: tradeAllocations,
                 settlementHash: settlementHash 
-            };
+            });
             
             // Log Statutory Proof (Audit)
             LEGAL_BRIEFS_STORE.unshift({
-                id: `DB-AUC-${CURRENT_AUCTION.auctionId}`,
-                asset_ref: `AUCTION-${CURRENT_AUCTION.auctionId}`,
+                id: `DB-AUC-${current.auctionId}`,
+                asset_ref: `AUCTION-${current.auctionId}`,
                 timestamp: new Date().toISOString(),
                 decision_type: 'AUTOMATED_MITIGATION',
-                narrative: `Auction ${CURRENT_AUCTION.auctionId} cleared at UCP ${clearingPrice}. Total Allocations: ${tradeAllocations.length}. Deterministic logic verified. Settlement Intent Hash: ${settlementHash}`,
+                narrative: `Auction ${current.auctionId} cleared at UCP ${clearingPrice}. Total Allocations: ${tradeAllocations.length}. Deterministic logic verified. Settlement Intent Hash: ${settlementHash}`,
                 statutory_citation: 'E-PSM Rulebook Art. 4.1',
                 digital_signature: `0x${uuidv4().replace(/-/g, '')}`
             });
 
-            // Simulate Event Emission for CSD Adapter
             console.log(`[AuctionEngine] SettlementIntent emitted: ${settlementHash} (Triggering CSD Handoff)`);
 
             resolve({ clearingPrice, allocations: tradeAllocations, settlementHash });
-        }, 1000);
+        }, 800);
     });
 }

@@ -267,16 +267,21 @@ To ensure transparency for auditors, stakeholders, and open-source contributors,
 - **Sprint 3 (Causal Mapping Engine - CME)**: Developed Monte Carlo shock distribution logic, built Recharts area visualizers, implemented policy query parsing.
 - **Sprint 4 (Governance & Living Law)**: Built Bank-Treasury Liquidity Facility (BTLF) state machine, automated code invariant auditor, and statutory decision brief registry.
 - **Sprint 5 (E-PSM Clearing Engine)**: Designed deterministic Uniform Clearing Price (UCP) auction algorithm and hash-chained settlement intent proofs.
-- **Sprint 6 (Copilot Integration & Public Hardening)**: Full-stack server migration (`server.ts`), integrated `@google/genai` multi-turn chatbot with persistent localStorage key management, fixed CI/CD GitHub Actions pipelines, and added prominent demo disclaimers.
+- **Sprint 6 (Copilot Integration & Public Hardening)**: Full-stack server migration (`server.ts`), integrated `@google/genai` multi-turn chatbot with persistent localStorage key management, added CSV export capabilities in LedgerView for financial audit records, built LedgerView Asset & Volume summary tracker and Recharts historical processing volume line chart on Dashboard, fixed CI/CD GitHub Actions pipelines, and added prominent demo disclaimers.
 
 ---
 
 ## 10. Version Changelog
 
 ### `v9.1.0-beta` (Current Release)
+- **Feature**: **CSV & JSON Import in IngestionSimulator (Phase I Pipeline)**: Full ingestion support for uploading external synthetic loan records via drag-and-drop or file picker, flexible CSV/JSON schema mapping, data validation, sample downloadable CSV and JSON templates, and immediate staging into `BERHANE_DATA_WAREHOUSE.raw_loan_book`.
 - **Feature**: Added full-stack **Gemini Sovereign Copilot** with 3 distinct models (`gemini-3.5-flash`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`).
 - **Feature**: Persistent frontend API key settings modal with `localStorage` persistence and live connectivity test.
 - **Feature**: Built-in Free Sovereign Domain Knowledge Engine fallback when running without cloud API keys.
+- **Feature**: **Real-Time Text Search in LedgerView & Securitization Mart**: Live interactive search input filtering synthetic assets by borrower enterprise name, loan ID, or asset UUID, complete with quick reset, result counter, and borrower organization indicators.
+- **Feature**: **CSV Export in LedgerView & Securitization Data Mart** enabling downloads of processed financial records (supporting both filtered view and full dataset exports).
+- **Feature**: **Historical Synthetic Asset Processing Volume Chart**: Recharts-powered dual-line time series tracking gross volume and Alpha Gate-compliant securitization pool growth over time with interactive batch/cumulative toggles and custom financial tooltips.
+- **Feature**: **LedgerView Summary Stats Widget**: Real-time aggregated nominal volume, securitization-ready pools, settled DLT volume, and Basel CAR provisioning relief on the Dashboard.
 - **Feature**: E-PSM Uniform Clearing Price auction simulator with time-priority tie-breaking.
 - **UI**: Added prominent "DEMO SIMULATION • SYNTHETIC MOCK DATA" notice across sidebar and header bars.
 - **Fix**: Resolved Vite SPA entry point script in `index.html`.

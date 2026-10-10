@@ -13,6 +13,8 @@ export interface RawLoan {
 export interface AssetLedgerItem {
   asset_uuid: string;
   loan_id: string;
+  borrower_name?: string;
+  applicant_name?: string;
   
   // AI/Risk Metrics
   imm_uplift: number;
@@ -250,4 +252,7 @@ export interface AuctionWindow {
     clearingPrice?: number;
     allocations?: any[];
     settlementHash?: string; // V9.1.0 Finality Proof
+    version?: number; // Concurrency sequence version
+    lastModified?: number; // Concurrency timestamp
+    lastModifiedByTab?: string; // Tab / client identity
 }

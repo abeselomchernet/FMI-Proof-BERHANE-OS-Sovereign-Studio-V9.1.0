@@ -44,11 +44,6 @@ export const AlphaGateLogic: React.FC<AlphaGateLogicProps> = ({ rawData, process
     }, 800); // 800ms per item for visual effect
   };
 
-  // Safe wrapper for setProcessedData to avoid hook issues if parent changes
-  const safeSetProcessedData = (newData: (prev: AssetLedgerItem[]) => AssetLedgerItem[]) => {
-      setProcessedData(newData(processedData));
-  };
-
   const handleIssuerCommitment = (asset: AssetLedgerItem) => {
       setRemediatingAsset(asset.asset_uuid);
       // Simulate API call to update record
